@@ -8,44 +8,51 @@ import { JIRADetails } from '../src/types';
 jest.spyOn(console, 'log').mockImplementation(); // avoid actual console.log in test output
 
 describe('getJIRAIssueKeys()', () => {
-  it('gets multiple keys from a string', () => {
-    expect(
-      Jira.getJIRAIssueKeys(
-        'BF-18 abc-123 X-88 ABCDEFGHIJKL-999 abc XY-Z-333 abcDEF-33 ABCDEF-33 abcdef-33 ABC-1 PB2-1 pb2-1 P2P-1 p2p-1'
-      )
-    ).toEqual([
-      'BF-18',
-      'ABC-123',
-      'X-88',
-      'CDEFGHIJKL-999',
-      'Z-333',
-      'ABCDEF-33',
-      'ABCDEF-33',
-      'ABCDEF-33',
-      'ABC-1',
-      'PB2-1',
-      'PB2-1',
-      'P2P-1',
-      'P2P-1',
-    ]);
+  it('extracts a jira key from the beginning of the branch name', () => {
+    // key right at the start
+    expect(Jira.getJIRAIssueKeys('MOJO-6789')).toEqual(['MOJO-6789']);
+    expect(Jira.getJIRAIssueKeys('MOJO-6789/task_with_underscores')).toEqual(['MOJO-6789']);
+    expect(Jira.getJIRAIssueKeys('MOJO-6789-task_with_underscores')).toEqual(['MOJO-6789']);
+
+    // key after a prefix (feature/, fix/, chore/, etc.)
+    expect(Jira.getJIRAIssueKeys('feature/MOJO-6789-some-description')).toEqual(['MOJO-6789']);
+    expect(Jira.getJIRAIssueKeys('fix/ES-43-login-protocol')).toEqual(['ES-43']);
+    expect(Jira.getJIRAIssueKeys('chore/MOJO-6789-task_with_underscores')).toEqual(['MOJO-6789']);
+
+    // case insensitive project key (normalized to uppercase)
+    expect(Jira.getJIRAIssueKeys('feature/mojo-123-description')).toEqual(['MOJO-123']);
+    expect(Jira.getJIRAIssueKeys('feature/esch-100-new-feature')).toEqual(['ESCH-100']);
+    expect(Jira.getJIRAIssueKeys('fix/es-43-login-fix')).toEqual(['ES-43']);
+
+    // project key with digits (e.g. PB2, P2P)
+    expect(Jira.getJIRAIssueKeys('feature/PB2-1-some-task')).toEqual(['PB2-1']);
+    expect(Jira.getJIRAIssueKeys('feature/P2P-99-peer-update')).toEqual(['P2P-99']);
   });
 
-  it('gets jira key from different branch names', () => {
-    expect(Jira.getJIRAIssueKeys('fix/login-protocol-es-43')).toEqual(['ES-43']);
-    expect(Jira.getJIRAIssueKeys('fix/login-protocol-ES-43')).toEqual(['ES-43']);
-    expect(Jira.getJIRAIssueKeys('feature/newFeature_esch-100')).toEqual(['ESCH-100']);
-    expect(Jira.getJIRAIssueKeys('feature/newFeature_ESCH-101')).toEqual(['ESCH-101']);
-    expect(Jira.getJIRAIssueKeys('feature/newFeature--mojo-5611')).toEqual(['MOJO-5611']);
-    expect(Jira.getJIRAIssueKeys('feature/newFeature--MOJO-6789')).toEqual(['MOJO-6789']);
+  it('ignores numbers elsewhere in the branch name', () => {
+    // numbers in description should NOT produce false matches
+    expect(Jira.getJIRAIssueKeys('feature/MOJO-123-add-step-2')).toEqual(['MOJO-123']);
+    expect(Jira.getJIRAIssueKeys('feature/MOJO-123-es-43-thing')).toEqual(['MOJO-123']);
+    expect(Jira.getJIRAIssueKeys('fix/ES-43-update-v2-config')).toEqual(['ES-43']);
 
-    expect(Jira.getJIRAIssueKeys('chore/task-with-dashes--MOJO-6789')).toEqual(['MOJO-6789']);
-    expect(Jira.getJIRAIssueKeys('chore/task_with_underscores--MOJO-6789')).toEqual(['MOJO-6789']);
-    expect(Jira.getJIRAIssueKeys('chore/MOJO-6789-task_with_underscores')).toEqual(['MOJO-6789']);
-    expect(Jira.getJIRAIssueKeys('MOJO-6789/task_with_underscores')).toEqual(['MOJO-6789']);
+    // version-like numbers in the description (e.g. node-24-0-3)
+    expect(Jira.getJIRAIssueKeys('MOJO-123-update-node-24-0-3')).toEqual(['MOJO-123']);
+    expect(Jira.getJIRAIssueKeys('feature/MOJO-123-update-node-24-0-3')).toEqual(['MOJO-123']);
+    expect(Jira.getJIRAIssueKeys('chore/GAL-99-migrate-react-18-to-19')).toEqual(['GAL-99']);
+  });
 
-    expect(Jira.getJIRAIssueKeys('MOJO-6789/task_with_underscores-ES-43')).toEqual(['MOJO-6789', 'ES-43']);
-    expect(Jira.getJIRAIssueKeys('nudge-live-chat-users-Es-172')).toEqual(['ES-172']);
+  it('returns only one key (the one at the beginning)', () => {
+    // even if branch name contains something that looks like a second key later, only the first is returned
+    expect(Jira.getJIRAIssueKeys('MOJO-6789/task_with_underscores-ES-43')).toEqual(['MOJO-6789']);
+  });
 
+  it('returns empty when no key is at the beginning', () => {
+    // key not at the start (after prefix) - these should NOT match
+    expect(Jira.getJIRAIssueKeys('feature/newFeature--MOJO-6789')).toEqual([]);
+    expect(Jira.getJIRAIssueKeys('fix/login-protocol-ES-43')).toEqual([]);
+    expect(Jira.getJIRAIssueKeys('nudge-live-chat-users-Es-172')).toEqual([]);
+
+    // no key at all
     expect(Jira.getJIRAIssueKeys('feature/missingKey')).toEqual([]);
     expect(Jira.getJIRAIssueKeys('')).toEqual([]);
   });

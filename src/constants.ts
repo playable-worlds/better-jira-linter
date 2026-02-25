@@ -16,9 +16,12 @@ export const BOT_BRANCH_PATTERNS: RegExp[] = [/^dependabot/, /^all-contributors/
 export const DEFAULT_BRANCH_PATTERNS: RegExp[] = [/^main$/, /^master$/, /^production$/, /^gh-pages$/];
 
 /**
- * Regex to match JIRA issue keys.
+ * Regex to match a JIRA issue key at the beginning of the branch name,
+ * after an optional prefix (e.g. "feature/", "fix/"). The key must appear
+ * immediately after the prefix separator (/) or at the very start.
+ * Captures: group 1 = project key, group 2 = issue number.
  */
-export const JIRA_REGEX_MATCHER = /\d+-(([A-Z0-9]{1,10})|[a-z0-9]{1,10})/g;
+export const JIRA_REGEX_MATCHER = /^(?:[^/]+\/)?([A-Za-z][A-Za-z0-9]{0,9})-(\d+)/;
 
 /**
  * Default total maximum number of additions after which action-jira-linter will discourage the PR as it is

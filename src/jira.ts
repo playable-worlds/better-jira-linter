@@ -23,12 +23,14 @@ export class Jira {
     return markUp.replace(/\s+/, ' ');
   };
 
-  /** Extract JIRA issue keys from a string. */
+  /** Extract a JIRA issue key from the beginning of a branch name (after an optional prefix like "feature/"). */
   static getJIRAIssueKeys = (input: string): string[] => {
-    const matches = this.reverseString(input).toUpperCase().match(JIRA_REGEX_MATCHER);
-    if (matches?.length) {
-      return matches.map(this.reverseString).reverse();
-    } else return [];
+    const match = input.match(JIRA_REGEX_MATCHER);
+    if (match) {
+      const [, project, issueNumber] = match;
+      return [`${project.toUpperCase()}-${issueNumber}`];
+    }
+    return [];
   };
 
   private getJIRAClient = (baseURL: string, username: string, token: string): AxiosInstance => {
@@ -195,7 +197,4 @@ Valid sample branch names:
       <p>Please ensure your jira story is in one of the allowed statuses</p>
     `;
   };
-
-  /** Reverse a string. */
-  private static reverseString = (input: string): string => input.split('').reverse().join('');
 }
